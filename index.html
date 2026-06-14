@@ -261,23 +261,21 @@ th.sort-desc .sort-arrow::after { content:" \25BC"; opacity:1; }
 
     <div class="section-label">Key performance indicators</div>
     <div class="kpi-grid three">
-      <!-- Card 1: Total Payment (sheet Payment kolom Payment, ikut filter tanggal) -->
+      <!-- Card 1: Total Payment + Target 1jt & persentase -->
       <div class="kpi-card accent">
         <div class="kpi-lbl">Total Payment</div>
         <div class="kpi-val" id="k-payment">&mdash;</div>
-        <div class="kpi-sub">total pembayaran (sesuai filter tanggal)</div>
+        <div class="kpi-progress"><div class="kpi-progress-track"><div class="kpi-progress-fill" id="k-payment-bar" style="width:0%"></div></div><div class="kpi-progress-label"><span class="kpi-pct" id="k-payment-pct">0%</span><span class="kpi-tgt">Target <span id="k-target-p">&mdash;</span></span></div></div>
       </div>
-      <!-- Card 2: Total Registrasi (sheet Payment kolom Jumlah Registrasi, ikut filter tanggal) -->
+      <!-- Card 2: Total Registrasi -->
       <div class="kpi-card">
         <div class="kpi-lbl">Total Registrasi</div>
         <div class="kpi-val" id="k-treg">&mdash;</div>
-        <div class="kpi-sub">total registrasi (sesuai filter tanggal)</div>
       </div>
-      <!-- Card 3: Total Spending (sheet Database) -->
+      <!-- Card 3: Total Spending -->
       <div class="kpi-card">
         <div class="kpi-lbl">Total Spending</div>
         <div class="kpi-val" id="k-cost">&mdash;</div>
-        <div class="kpi-sub">total biaya semua channel</div>
       </div>
     </div>
 
@@ -340,6 +338,7 @@ var CFG = {
   LOGO_URL       : "https://bgsspace.github.io/dashboartStarlite/logostarlite.png",
   GFORM_URL      : "https://docs.google.com/forms/d/e/1FAIpQLSfeN3DFiKzpoSfWamDiArZWQKCwAVjg00XAWr2fOVlgiM5o1A/viewform",
   COMMISSION_PER : 30000,
+  TARGET_P       : 1000000,
   REFRESH_MIN    : 0,
   COMMISSION_SOURCES : ["kol","homeless"],
   SHEETS: [
@@ -528,12 +527,19 @@ function renderKPI(d){
   set("k-payment",fmtNum(totalPayment));
   set("k-treg",fmtNum(totalReg));
 
+  // Total Payment: target & persentase
+  var pct=CFG.TARGET_P?Math.min(Math.round(totalPayment/CFG.TARGET_P*100),100):0;
+  set("k-target-p",fmtNum(CFG.TARGET_P));
+  set("k-payment-pct",pct+"%");
+  bar("k-payment-bar",pct);
+
   // Total Spending: dari data Database terfilter
   var tc=0;
   d.forEach(function(r){ tc+=num(r.cost); });
   set("k-cost",fmtRp(tc));
 }
 function set(id,v){ var el=document.getElementById(id); if(el) el.textContent=v; }
+function bar(id,p){ var el=document.getElementById(id); if(el) el.style.width=p+"%"; }
 
 function renderTrend(){
   var rows=getFilteredPayment().slice().sort(function(a,b){
@@ -545,13 +551,14 @@ function renderTrend(){
   var pay=rows.map(function(p){ return num(p.payment); });
   if(trendChart){ trendChart.destroy(); trendChart=null; }
   trendChart=new Chart(document.getElementById("chart-trend").getContext("2d"),{
-    type:"bar",
+    type:"line",
     data:{ labels:labels, datasets:[
-      { label:"Registrasi", data:reg, backgroundColor:"#1F5FE0", borderRadius:5, borderSkipped:false },
-      { label:"Payment",    data:pay, backgroundColor:"#16A34A", borderRadius:5, borderSkipped:false }
+      { label:"Registrasi", data:reg, borderColor:"#1F5FE0", backgroundColor:"#1F5FE0", borderWidth:2.5, pointRadius:3, pointBackgroundColor:"#1F5FE0", tension:0.3, fill:false },
+      { label:"Payment",    data:pay, borderColor:"#16A34A", backgroundColor:"#16A34A", borderWidth:2.5, pointRadius:3, pointBackgroundColor:"#16A34A", tension:0.3, fill:false }
     ]},
     options:{ responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:function(c){ return " "+c.dataset.label+": "+fmtNum(c.parsed.y); } } } },
+      plugins:{ legend:{display:false}, tooltip:{ mode:"index", intersect:false, callbacks:{ label:function(c){ return " "+c.dataset.label+": "+fmtNum(c.parsed.y); } } } },
+      interaction:{ mode:"index", intersect:false },
       scales:{
         x:{ grid:{display:false}, ticks:{font:{size:11},color:"#9AA6BC",maxRotation:45,minRotation:0} },
         y:{ beginAtZero:true, grid:{color:"#E7EDF8"}, ticks:{font:{size:11},color:"#9AA6BC",callback:function(v){return v>=1000?(v/1000).toFixed(1)+"K":v;}} }
